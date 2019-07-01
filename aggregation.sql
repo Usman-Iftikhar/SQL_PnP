@@ -174,6 +174,78 @@ FROM sales_reps;
 -- HAVING
 ---------------------------------------------------------------------------
 
+-- Sales reps with more than 5 accounts.
+
+SELECT sr.id, sr.name, COUNT(*)
+FROM sales_reps sr
+JOIN accounts a
+ON a.sales_rep_id = sr.id
+GROUP BY sr.id, sr.name
+HAVING COUNT(*) > 5;
+
+
+
+-- Accounts with more than 20 orders.
+
+SELECT a.id, a.name, COUNT(*)
+FROM accounts a
+JOIN orders o
+ON o.account_id = a.id
+GROUP BY a.id, a.name
+HAVING COUNT(*) > 20;
+
+-- Account with the most orders.
+
+SELECT a.id, a.name, COUNT(*) AS "Number of orders"
+FROM accounts a
+JOIN orders o
+ON o.account_id = a.id
+GROUP BY a.id, a.name
+ORDER BY COUNT(*) DESC
+LIMIT 1;
+
+-- Accounts that spent more than $30,000 total across all orders.
+
+SELECT a.id, a.name, SUM(o.total_amt_usd) total_spent
+FROM accounts a
+JOIN orders o
+ON o.account_id = a.id
+GROUP BY a.id, a.name
+HAVING SUM(o.total_amt_usd) > 30000;
+
+
+
+-- Account that spent the most.
+
+SELECT a.id, a.name, SUM(o.total_amt_usd)
+FROM accounts a
+JOIN orders o
+ON o.account_id = a.id
+GROUP BY a.id, a.name
+ORDER BY SUM(o.total_amt_usd) DESC
+LIMIT 1;
+
+
+
+-- Accounts that used Facebook channel to contact customers more than 6 times.
+
+SELECT a.id, a.name, we.channel, COUNT(*)
+FROM accounts a
+JOIN web_events we
+ON a.id = we.account_id
+GROUP BY a.id, a.name, we.channel
+HAVING COUNT(*) > 6 AND we.channel = 'facebook';
+
+
+
+-- Channel most frequently used.
+
+SELECT we.channel, COUNT(*)
+FROM web_events we
+GROUP BY we.channel
+ORDER BY COUNT(*) DESC;
+
+
 
 
 -- DATE
