@@ -251,8 +251,87 @@ ORDER BY COUNT(*) DESC;
 -- DATE
 ---------------------------------------------------------------------------
 
+-- Total sales for all orders in each year.
+
+SELECT DATE_PART('year', occurred_at) order_year, SUM(total_amt_usd) total
+FROM orders
+GROUP BY 1
+ORDER BY 2 DESC;
+
+
+
+-- Month with the greatest sales.
+
+SELECT DATE_PART('month', occurred_at) order_year, SUM(total_amt_usd) total
+FROM orders
+GROUP BY 1
+ORDER BY 2 DESC;
+
+
+
+-- Year with greatest sales in terms of total number of orders.
+
+SELECT DATE_PART('year', occurred_at) order_year, COUNT(*)
+FROM orders
+GROUP BY 1
+ORDER BY 2 DESC;
+
+
+
+-- Year/month that Walmart spent the most on gloss paper.
+
+SELECT a.name account, DATE_TRUNC('month', o.occurred_at) order_date, SUM(o.gloss_amt_usd) gloss_amt
+-- Using DATE_PART would only give the month without year.
+FROM accounts a
+JOIN orders o
+ON a.id = o.account_id
+WHERE a.name = 'Walmart'
+GROUP BY order_date, account
+ORDER BY gloss_amt DESC;
+
 
 
 
 -- CASE
 ---------------------------------------------------------------------------
+
+-- For year 2016, identify customers based on the following 3 total sales value:
+-- Greater than $200,000.
+-- Between $200,000 and $100,000.
+-- Below $100,000.
+
+SELECT 
+	a.name account, DATE_PART('year', o.occurred_at) AS year,
+	SUM(o.total_amt_usd) total,
+	CASE 
+		WHEN SUM(o.total_amt_usd) >= 200000 THEN 'High'
+		WHEN SUM(o.total_amt_usd) > 100000 AND SUM(o.total_amt_usd) < 200000 THEN 'Mid'
+		ELSE 'Low' END AS level
+FROM accounts a
+JOIN orders o
+ON o.account_id = a.id
+WHERE 2016 = DATE_PART('year', o.occurred_at)
+GROUP BY account, year;
+
+
+
+-- Performance category of sales reps:
+-- TOP: Orders > 200 or total sales > 750000.
+-- MIDDLE: Orders between 150 and 200 or total sales between 500000 and 750000.
+-- LOW: All other.
+
+SELECT 
+	sr.name sales_rep,
+	COUNT(*) orders,
+	SUM(o.total_amt_usd) sales,
+	CASE
+		WHEN COUNT(*) > 200 OR SUM(o.total_amt_usd) > 750000 THEN 'Top'
+		WHEN COUNT(*) > 150 OR SUM(o.total_amt_usd) > 500000 THEN 'Middle'
+		ELSE 'Low'
+	END AS "Sales Level"
+FROM sales_reps sr
+JOIN accounts a
+ON sr.id = a.sales_rep_id
+JOIN orders o
+ON o.account_id = a.id
+GROUP BY sales_rep;
