@@ -250,4 +250,3 @@ FROM
 		 FROM accounts a
 		 JOIN orders o
 		 ON a.id = o.account_id)) t2;
-
