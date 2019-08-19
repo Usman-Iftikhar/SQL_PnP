@@ -21,7 +21,7 @@ JOIN region r
 ON s.region_id = r.id
 JOIN accounts a
 ON a.sales_rep_id = s.id
-ORDER BY a.name;
+ORDER BY account;
 
 
 
@@ -95,5 +95,5 @@ SELECT a.name Acct_name, o.occurred_at Time_occurred, o.total Total_qty, o.total
 FROM orders o
 JOIN accounts a
 ON o.account_id = a.id
-WHERE o.occurred_at BETWEEN '01-01-2015' AND '01-01-2016'
+WHERE o.occurred_at BETWEEN '01-01-2015' AND '01-01-2016' /* Lower bound is inclusive, upper bound is exclusive */
 ORDER BY o.occurred_at ASC;
