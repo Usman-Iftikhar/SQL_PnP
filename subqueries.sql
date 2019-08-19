@@ -20,17 +20,19 @@ FROM
 GROUP BY channel
 ORDER BY avg_events;
 
+
+
 ---------------------------------------------------------------------------------------
 
 /*
+Then pull the average for each type of paper quantity in the first month.
+
 Pull month level information about the first order ever placed in the orders table.
 SELECT DATE_TRUNC('month', MIN(occurred_at))
 FROM orders
 
 Then find only the orders that took place in the same month and year as the first order.
 WHERE DATE_TRUNC('month', occured_at) = above query
-
-Then pull the average for each type of paper quantity in this month.
 */
 
 SELECT AVG(standard_qty) avg_std, AVG(gloss_qty) avg_gloss, AVG(poster_qty) avg_qty
@@ -38,14 +40,17 @@ FROM orders
 WHERE DATE_TRUNC('month', occurred_at) = 
 	(SELECT DATE_TRUNC('month', MIN(occurred_at))
 	 FROM orders);
-	 
+-- Notice alias is not provided for the subquery because it is an individual value and not a table.
+					   
+					   
 ---------------------------------------------------------------------------------------
 
 /*
 Name of the sales rep in each region with the largest amount of sales.
+
 FIRST: get rep, region, total and label as t1
 Then pick the max from each region and label as t2
-Creae another query (same as t1) and label as t3
+Create another query (same as t1) and label as t3
 Join t2 and t3 on regin and total (this will match the max total from both tables)
 */
 
@@ -78,7 +83,7 @@ ON t3.region = t2.region AND t3.total_amt = t2.total_amt;
 -- Same query as above using the WITH method.
 
 WITH
-	t1 AS 
+	rep_region_total AS
 		(SELECT sr.name sales_rep, r.name region, SUM(o.total_amt_usd) total
 		FROM region r
 		JOIN sales_reps sr
@@ -88,13 +93,13 @@ WITH
 		JOIN orders o
 		ON o.account_id = a.id
 		GROUP BY sales_rep, region),
-		
-	t2 AS
+					   
+	max_region_total AS
 		(SELECT region, MAX(total) total_amt
-		FROM t1
+		FROM rep_region_total
 		GROUP BY region),
 		
-	t3 AS 
+	rep_region_total_replica AS 
 		(SELECT sr.name rep_name, r.name region, SUM(o.total_amt_usd) total_amt
 		FROM region r
 		JOIN sales_reps sr
@@ -105,10 +110,14 @@ WITH
 		ON o.account_id = a.id
 		GROUP BY rep_name, region)
 		
-SELECT t3.rep_name, t3.region, t3.total_amt
-FROM t3 
-JOIN t2
-ON t3.region = t2.region AND t3.total_amt = t2.total_amt;
+SELECT 
+	rep_region_total_replica.rep_name, 
+	rep_region_total_replica.region, 
+	rep_region_total_replica.total_amt
+FROM rep_region_total_replica 
+JOIN max_region_total
+ON rep_region_total_replica.region = max_region_total.region AND 
+					   rep_region_total_replica.total_amt = max_region_total.total_amt;
 
 ---------------------------------------------------------------------------------------
 
@@ -142,6 +151,33 @@ HAVING SUM(o.total_amt_usd) =
 		 GROUP BY 1
 		) t1
 	);
+
+-- Same query as above using the WITH method.					   
+					   
+WITH 
+	region_total AS 
+		(SELECT r.name region, SUM(o.total_amt_usd) total
+		 FROM orders o
+		 JOIN accounts a
+		 ON o.account_id = a.id
+		 JOIN sales_reps sr
+		 ON sr.id = a.sales_rep_id
+		 JOIN region r
+		 ON r.id = sr.region_id
+		 GROUP BY 1)
+					   
+SELECT r.name region, COUNT(o.total) total_orders
+FROM orders o
+JOIN accounts a
+ON o.account_id = a.id
+JOIN sales_reps sr
+ON sr.id = a.sales_rep_id
+JOIN region r
+ON r.id = sr.region_id
+GROUP BY 1
+HAVING SUM(o.total_amt_usd) = 
+	(SELECT MAX(total)
+	 	FROM region_total);
 	
 ---------------------------------------------------------------------
 
@@ -174,7 +210,7 @@ FROM
 			 GROUP BY account
 			 ORDER BY total_std_qty DESC
 			 LIMIT 1
-			) t1
+			) t1 -- This is still a table, but limited to only show 1 row, so it has an alias.
 		) -- Do not write alias in a conditional statement because it is an individual value.
 	 ) t2;
 
@@ -240,12 +276,15 @@ for only the companies that spent more than the average of all orders?
 
 */
 
+-- Life time average for only the companies that spent more than the average of all orders.
 SELECT AVG(avg_total)
 FROM 
+	-- Companies that spent more than the average of all orders
 	(SELECT account_id id, AVG(total_amt_usd) avg_total
 	 FROM orders
 	 GROUP BY id
 	 HAVING AVG(total_amt_usd) > 
+	 	-- Average of all orders
 	 	(SELECT AVG(o.total_amt_usd) avg_total
 		 FROM accounts a
 		 JOIN orders o
