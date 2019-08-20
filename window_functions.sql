@@ -183,6 +183,7 @@ FROM orders;
 /*
 WINDOW alias
 Goes between WHERE and GROUP BY
+The below query is the same as above, but it is much easier to read.
 */
 																		
 SELECT id, account_id, standard_qty,
@@ -195,4 +196,90 @@ SELECT id, account_id, standard_qty,
 	MAX(standard_qty) OVER main_window AS max_std_qty
 FROM orders
 WINDOW main_window AS (PARTITION BY account_id ORDER BY DATE_TRUNC('month', occurred_at));
-																		
+
+-- Alias part: WINDOW main_window AS
+-- Window function part: (PARTITION BY account_id ORDER BY DATE_TRUNC('month', occurred_at))
+																   
+																   
+-- Comparing a row to previous row																  
+--------------------------------------------------------------------
+
+/*
+LAG - returns the value from previous row to the current row in the table.
+LEAD - returns the value from the row following the current row in the table.
+*/		
+																   
+SELECT account_id, standard_sum,
+	LAG(standard_sum) OVER (ORDER BY standard_sum) AS lag,
+	LEAD(standard_sum) OVER (ORDER BY standard_sum) AS lead
+FROM
+	-- How much standard paper is purchased over time.
+	(SELECT account_id,
+		SUM(standard_qty) AS standard_sum
+	FROM orders
+	GROUP BY 1
+	) sub;
+																   
+-- Compare the difference between rows
+																   
+SELECT account_id, standard_sum,
+	LAG(standard_sum) OVER (ORDER BY standard_sum) AS lag,
+	LEAD(standard_sum) OVER (ORDER BY standard_sum) AS lead,
+	standard_sum - LAG(standard_sum) OVER (ORDER BY standard_sum) AS lag_difference,
+	LEAD(standard_sum) OVER (ORDER BY standard_sum) - standard_sum AS lead_difference
+FROM
+	-- How much standard paper is purchased over time.
+	(SELECT account_id,
+		SUM(standard_qty) AS standard_sum
+	FROM orders
+	GROUP BY 1
+	) sub;
+																   
+--  Determine how the current order's total revenue compares to the next order's total revenue.
+																   
+SELECT occurred_at, total_amt,
+	LEAD(total_amt) OVER (ORDER BY occurred_at) AS lead,
+	LEAD(total_amt) OVER (ORDER BY occurred_at) - total_amt AS lead_difference
+FROM
+	-- How much standard paper is purchased over time.
+	(SELECT occurred_at,
+		SUM(total_amt_usd) AS total_amt
+	FROM orders
+	GROUP BY 1
+	) sub;															   
+
+-- Percentiles																  
+--------------------------------------------------------------------
+
+/*
+NTILE - allows you to see percentile
+ORDER BY - which colume to use to determine the NTILE
+*/
+																   
+SELECT id,
+	account_id,
+	occurred_at,
+	standard_qty,
+	NTILE(4) OVER(ORDER BY standard_qty) AS quartile, -- Divide the window into 4															   
+	NTILE(5) OVER(ORDER BY standard_qty) AS quintile, -- Divide the window into 5															   
+	NTILE(100) OVER(ORDER BY standard_qty) AS percentile														   
+FROM orders																   
+ORDER BY standard_qty DESC;																   
+																   
+																   
+-- Practice
+																   
+SELECT account_id, occurred_at, standard_qty,
+	NTILE(4) OVER (PARTITION BY account_id ORDER BY standard_qty) AS standard_quartile
+FROM orders
+ORDER BY standard_qty DESC;
+																   
+																   
+SELECT account_id, occurred_at, gloss_qty,
+	NTILE(2) OVER (PARTITION BY account_id ORDER BY gloss_qty) AS gloss_half
+FROM orders;
+																   
+																   
+SELECT account_id, occurred_at, total_amt_usd,
+	NTILE(100) OVER (PARTITION BY account_id ORDER BY total_amt_usd) AS percentile
+FROM orders;
