@@ -280,5 +280,4 @@ query will make includes:
 * Joins	 
 *Aggregations					   
 					   
-*/					   
-					   
+*/
