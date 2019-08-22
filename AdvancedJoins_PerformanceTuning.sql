@@ -210,7 +210,8 @@ FROM orders	o
 WHERE o.occurred_at >= '2016-01-01' AND o.occurred_at < '2016-07-01';
 
 					   
--- Limiting number of rows doesn't help because it is at the end of the query					   
+-- Limiting number of rows doesn't help with aggregates because aggregation is applied first.
+-- Limit is applied at the end of the query					   
 -- Below query takes 162 msec.
 					   
 SELECT account_id,
@@ -244,7 +245,8 @@ ON we.account_id = a.id
 GROUP BY 1	
 ORDER BY 2 DESC;
 
-----------					   
+-- Pre-aggreating the web_events table, this could reduce the number of rows 
+-- that need to be evaluated in the join
 					   
 WITH sub AS
 	(SELECT account_id, COUNT(*) AS web_events
@@ -258,26 +260,79 @@ ON a.id = sub.account_id
 ORDER BY 2 DESC;					   
 				
 					   
--- Add EXPLAIN before any query that will show how long it will take	
+-- Add EXPLAIN before any query, it will show how long it will take	
 
 EXPLAIN
 SELECT *					   
 FROM web_events we					   
 WHERE we.occurred_at >= '2016-01-01' AND occurred_at < '2016-07-01'					   
 LIMIT 100;					   
-
-					   
+					   					   
 					   
 -- JOINing Subqueries
 ---------------------------------------------------------------
 
 /*
-One way to make query run faster is to reduce the number of calculations that need to be 
-performed.  Some of the high-level things that will affect the number of calculations a given
-query will make includes:			   
-
-* Table size
-* Joins	 
-*Aggregations					   
+The below query joins on date field, this means	joining every row in a given day from one table 
+onto every row with the same day in another table.				   
 					   
-*/
+*/					   
+					   
+SELECT
+	DATE_TRUNC('day', o.occurred_at) AS date,
+	COUNT(DISTINCT a.sales_rep_id) AS active_sales_reps,
+	COUNT(DISTINCT o.id) AS orders,
+	COUNT(DISTINCT we.id) AS web_events
+FROM accounts a
+JOIN orders o
+ON o.account_id = a.id
+JOIN web_events we
+ON DATE_TRUNC('day', we.occurred_at) = DATE_TRUNC('day', o.occurred_at)
+GROUP BY 1
+ORDER BY 1 DESC;
+
+					   
+-- Check how big this data gets before aggregating
+-- 79,083 rows are produced before aggreating
+					   
+					   
+SELECT
+	o.occurred_at AS date,
+	a.sales_rep_id,				   
+	o.id AS order_id,
+	we.id AS web_event_id				   
+FROM accounts a
+JOIN orders o
+ON o.account_id = a.id
+JOIN web_events we
+ON DATE_TRUNC('day', we.occurred_at) = DATE_TRUNC('day', o.occurred_at)
+ORDER BY 1 DESC;
+					   
+
+-- Can get the same result more efficiently by aggregating the tables separtely					   
+
+SELECT COALESCE(orders.date, web_events.date) AS date,
+	orders.active_sales_reps,
+	orders.orders,
+	web_events.web_visits
+FROM
+	(-- Subquery 1
+	SELECT
+	DATE_TRUNC('day', o.occurred_at) AS date,
+	COUNT(a.sales_rep_id) AS active_sales_reps,
+	COUNT(o.id) AS orders
+	FROM accounts a
+	JOIN orders o
+	ON o.account_id = a.id
+	GROUP BY date) orders					   
+
+FULL JOIN
+	
+	(-- Subquery 2					   
+	SELECT
+		DATE_TRUNC('day', we.occurred_at) AS date,
+		COUNT(we.id) AS web_visits
+	FROM web_events we
+	GROUP BY date) web_events
+ON web_events.date = orders.date
+ORDER BY 1 DESC;				   
